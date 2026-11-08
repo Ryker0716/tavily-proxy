@@ -2,6 +2,11 @@
 
 Self-hosted proxy that sits between your clients and the [Tavily API](https://tavily.com/), providing a shared API key pool with automatic rotation, rate-limit-aware key selection, and dual-protocol MCP access.
 
+> [!NOTE]
+> This project is a fork of [StarsInDmajor/tavily-proxy](https://github.com/StarsInDmajor/tavily-proxy) and is now maintained independently by [Ryker0716](https://github.com/Ryker0716). It is not affiliated with, endorsed by, or tracked against the upstream repository — bug reports and feature requests belong here, in [this repo's issues](https://github.com/Ryker0716/tavily-proxy/issues).
+>
+> 本项目 fork 自 [StarsInDmajor/tavily-proxy](https://github.com/StarsInDmajor/tavily-proxy)，现由 Ryker0716 独立维护，与上游无关联、不跟随上游更新。问题反馈请提到本仓库的 Issues。
+
 ## Why
 
 - **Multi-key pool** — register multiple Tavily API keys; the proxy automatically picks the one with the most remaining credits per request
@@ -28,7 +33,7 @@ EOF
 # 2. Start the proxy
 npx tavily-proxy                           # if installed via npm
 # — or —
-nix run github:StarsInDmajor/tavily-proxy  # if using Nix
+nix run github:Ryker0716/tavily-proxy   # if using Nix
 
 # With environment variables
 TAVILY_KEY_STORE_PATH=./keys.json TAVILY_PORT=9100 node dist/src/index.js

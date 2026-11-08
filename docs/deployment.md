@@ -11,7 +11,7 @@ The project includes a Nix flake that exports a Home Manager module for declarat
 {
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-25.11";
-    tavily-proxy.url = "github:StarsInDmajor/tavily-proxy";
+    tavily-proxy.url = "github:Ryker0716/tavily-proxy";
   };
 
   outputs = { nixpkgs, tavily-proxy, ... }@inputs: {
