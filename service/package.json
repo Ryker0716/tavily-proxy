@@ -18,6 +18,14 @@
     "search"
   ],
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Ryker0716/tavily-proxy.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Ryker0716/tavily-proxy/issues"
+  },
+  "homepage": "https://github.com/Ryker0716/tavily-proxy#readme",
   "dependencies": {
     "@hono/node-server": "^1.19.11",
     "@modelcontextprotocol/sdk": "^1.27.1",
