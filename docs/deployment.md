@@ -87,7 +87,7 @@ The file referenced by `keyStorePath`:
 
 - `authKey` — the management key used to authenticate callers. Required unless `services.tavily-proxy.authKey` is set.
 - `keys[].key` — Tavily API key (string starting with `tvly-`). Also accepts `keys[].apiKey`.
-- `keys[].credit` — initial credit estimate. The proxy syncs the real value from Tavily's `/usage` endpoint after the first request. If omitted, defaults to `1000`.
+- `keys[].credit` — initial credit estimate. The first periodic `/usage` sync begins 15 seconds after startup. If omitted, defaults to `1000`.
 
 ### Systemd Service
 
@@ -141,9 +141,11 @@ The module adds to `home.packages`:
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `TAVILY_PORT` | `9100` | HTTP listen port |
-| `TAVILY_STORE_PATH` | `~/.local/state/tavily/key-store.json` | Runtime key pool state file (file-backed JSON) |
+| `TAVILY_STORE_PATH` | module sets `~/.local/state/tavily/key-store.json` | Runtime key-pool state file; standalone builds should set this explicitly |
 | `TAVILY_KEY_STORE_PATH` | *(none)* | Initial key store JSON (loaded once at startup). Contains `authKey` + `keys` array |
 | `TAVILY_AUTH_KEY` | *(none)* | Management auth key. Falls back to `authKey` in key store JSON if not set. **Required** — the process exits if neither is provided |
+| `TAVILY_KEY_RPM` | `100` | Per-key request cap within a rolling 60 s window |
+| `TAVILY_SYNC_INTERVAL_MS` | `300000` | Periodic `/usage` credit-sync interval in milliseconds |
 | `TAVILY_EXTERNAL_PATH` | *(none)* | URL path prefix for the SSE message endpoint. Set to the reverse proxy location (e.g., `/tavily`) when the service is behind a path-based proxy |
 
 ---
@@ -232,4 +234,4 @@ tvly-xxx...  remainingCredit: 850
 tvly-yyy...  remainingCredit: 420
 ```
 
-Credits are synced automatically after each successful request. To force a sync, remove and re-add the key.
+Credit balances are refreshed by periodic sync (default every 5 minutes, after an initial 15-second delay). Adding a key triggers an immediate sync; to force a refresh of an existing key, remove and re-add it.

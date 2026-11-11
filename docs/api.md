@@ -41,7 +41,7 @@ Search the web. [Tavily docs](https://docs.tavily.com/documentation/api-referenc
 | `chunks_per_source` | 1–3 | — | Snippets per source (`advanced` depth only) |
 | `country` | string | — | Boost results from country (forces `topic: general`) |
 
-**Proxy behavior**: after a successful search, credits are synced from Tavily's `/usage` endpoint. Setting `country` overrides `topic` to `general`. `start_date`/`end_date` and `time_range` are mutually exclusive (dates take precedence).
+**Proxy behavior**: balances are refreshed by periodic `/usage` sync, not by a separate call per search. Setting `country` overrides `topic` to `general`. `start_date`/`end_date` and `time_range` are mutually exclusive (dates take precedence).
 
 **Cost**: 1 credit (`basic`), 2 credits (`advanced`).
 
@@ -155,7 +155,7 @@ Poll a research job's status.
 
 Possible `status` values: `pending`, `running`, `completed`, `failed`.
 
-On completion or failure, the proxy syncs credits and removes the `requestId` from the internal map.
+On completion or failure, the proxy removes the `requestId` from the internal map. Credit balances are refreshed by periodic sync.
 
 ---
 
@@ -341,7 +341,7 @@ For MCP tools, this is returned as:
 
 ## Tavily API Rate Limits (upstream)
 
-These are Tavily's native rate limits per API key. The proxy's QPS-based rate limiting is separate and protects against exceeding these.
+These are example upstream limits; consult Tavily's current documentation for authoritative values. The proxy separately applies per-key rolling 60 s budgets (default 100 requests) and a 100 ms burst interval. An actual upstream request, including periodic `/usage` sync, still consumes the upstream request budget even if it does not consume search/extract credits.
 
 | Endpoint | Dev RPM | Prod RPM |
 |----------|---------|----------|

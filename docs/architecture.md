@@ -70,15 +70,17 @@ The key pool (`LocalKVStore` in `key-pool.ts`) is a file-backed JSON store with 
    - `enabled === false`
    - `disabledUntil` is in the future (temporarily disabled)
 2. **Sort** — descending by `remainingCredit` (highest first)
-3. **Rate-limit check** — walk the sorted list looking for a key not rate-limited (elapsed time since `lastRequestTime` ≥ `1000 / qps` ms)
-4. **Atomic soft-lock** — stamp `lastRequestTime = Date.now()` on the chosen key *before* returning, so concurrent callers cannot pick the same key within the same QPS window
-5. **Fallback wait** — if all keys are rate-limited, wait for the best key's QPS window to expire (capped at 10 s), then stamp and return it
+3. **Rate-limit check** — walk the sorted list looking for a key whose rolling 60 s request count is below `TAVILY_KEY_RPM` (default 100) and whose last request was at least 100 ms ago
+4. **Atomic soft-lock** — stamp `lastRequestTime = Date.now()` on the chosen key *before* returning; the actual upstream request is added to the rolling window by `recordRequestStart()`
+5. **Fallback wait** — if all keys are rate-limited, wait until the best key's burst interval ends or its oldest rolling-window request expires (capped at 10 s), then stamp and return it
+
+The legacy stored `qps` field no longer controls request spacing.
 
 If no key is available at all (empty pool, all expired, or wait exceeds 10 s), the request fails with a clear error message.
 
 ### Credit Tracking
 
-After every successful request, the proxy calls Tavily's `GET /usage` endpoint to sync the key's remaining credit:
+The proxy calls Tavily's `GET /usage` endpoint for each enabled key in a periodic background task. The first sync begins 15 seconds after startup, followed by a sync every `TAVILY_SYNC_INTERVAL_MS` (default 5 minutes), with keys queried sequentially 1.5 seconds apart. Adding a key synchronises its balance immediately:
 
 ```
 remainingCredit = max(0, key.limit - key.usage)
@@ -86,7 +88,7 @@ remainingCredit = max(0, key.limit - key.usage)
 
 If `key.limit` is `null` (unlimited key), it falls back to `account.plan_limit`.
 
-This means the proxy always has an up-to-date view of each key's balance for the next `pickBestKey()` call.
+Successful business requests do not each trigger a separate `/usage` call. The next `pickBestKey()` uses the latest synced balance; if a key's cached balance reaches zero, it is filtered out.
 
 ### Error Handling
 
@@ -135,7 +137,7 @@ The runtime state (`TAVILY_STORE_PATH`) is a JSON file with this structure:
 }
 ```
 
-Persistence is atomic (write to `.tmp`, then `rename`).
+Persistence is atomic (a unique temporary file per write, then `rename`), with serialised writes. In-memory mutations take effect immediately; most writes are debounced to a 30-second flush. `flush()` writes dirty state immediately, and `close()` stops the timer and flushes pending state during graceful shutdown. The runtime state includes rolling `requestTimes` entries in addition to the fields shown above.
 
 ## MCP Transports
 
@@ -177,7 +179,7 @@ When called as an MCP tool, the proxy handles the full lifecycle internally:
 3. Return completed/failed result as MCP tool response
 ```
 
-The key used to initiate the research is tracked internally. After completion, credits are synced.
+The key used to initiate the research is tracked internally. A second key cannot poll that research request; if no reservation is found, REST polling selects an available pool key.
 
 ### REST path (async)
 
@@ -188,7 +190,7 @@ When called via REST, the proxy returns the `request_id` immediately and the cal
    (key is stored in researchKeyMap)
 2. GET /research/{requestId} → poll until completed/failed
    (uses the stored key; falls back to best pool key if not found)
-3. On completion: credit sync + cleanup from researchKeyMap
+3. On completion or failure: cleanup from researchKeyMap; credit balances are refreshed by periodic sync
 ```
 
 This matches Tavily's native async API pattern.
